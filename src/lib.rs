@@ -1,6 +1,10 @@
+#![warn(clippy::pedantic)]
+#![warn(clippy::all)]
+
 #[macro_use]
 extern crate json;
-use std::collections::HashMap;
+pub mod params;
+pub use params::Params;
 
 type Request = String;
 
@@ -20,11 +24,11 @@ impl VK {
     }
 
     #[tokio::main]
-    pub async fn request(&self, method: &str, params: HashMap<&str, &str>) -> std::result::Result<json::JsonValue, json::JsonValue>{
+    pub async fn request(&self, method: &str, params: &mut Params) -> std::result::Result<json::JsonValue, json::JsonValue>{
         let request_url = self.build_request(method, params);
         let response = reqwest::get(&request_url)
         .await.unwrap().text().await.unwrap();
-        let parsed = json::parse(&response).unwrap(); // TODO: Get rid of unwrap (need help tho)
+        let parsed = json::parse(&response).unwrap(); // TODO: Get rid of unwrap (need help)
         // Check if it's error
         if !parsed["error"].is_null(){
             return Err(parsed);
@@ -49,7 +53,7 @@ impl VK {
         Ok(())
     }
 
-    fn build_request(&self, method: &str, params: HashMap<&str, &str>) -> Request {
+    fn build_request(&self, method: &str, params: &mut Params) -> Request {
         let access_token = self.access_token.as_ref();
         if access_token.is_none(){
             panic!("Access token is empty! Did you forget to call set_access_token() ?");
@@ -59,7 +63,7 @@ impl VK {
         let mut result = Request::from("https://api.vk.com/method/");
         result.push_str(method);
         result.push_str("?");
-        params.iter().for_each(|(p, v)| result.push_str(&format!("{}={}&", p, v)) ); // Make parametres to one string
+        result.push_str(&params.concat());
         result.push_str(&format!("access_token={}", &access_token));
         result.push_str("&v=");
         result.push_str(&self.api_version);
