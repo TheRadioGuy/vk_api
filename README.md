@@ -17,12 +17,14 @@ let mut params = vk_api::Params::new();
 let params = params.add("group_id", "142102660").add("fields", "bdate"); // add params
 
 let mut vk_api = vk_api::VK::new("5.103", "ru"); // 5.103 is api version
-vk_api.set_access_token("ACCESS_TOKEN"); // Access token is your token (how to get it see above)
+vk_api.set_access_token("ACCESS_TOKEN".to_string()); // Access token is your token (how to get it see above)
 let response = vk_api.request("groups.getMembers", params).unwrap(); // call groups.getMembers method with our parametres
     for user in response["response"]["items"].members() {
         println!("Имя: {}, Фамилия: {}, Дата рождения: {}", user["first_name"], user["last_name"], user["bdate"]); // Print all users information
     }
 ```
+### I want more examples!
+[Here](https://github.com/DuckerMan/vk_api/tree/master/examples) you go!
 
 ### Plans
 
