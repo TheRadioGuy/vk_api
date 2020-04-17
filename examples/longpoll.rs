@@ -4,7 +4,7 @@ fn main() {
     let params = params.add("group_id", "142102660").add("fields", "bdate");
     let mut vk_api = vk_api::VK::new("5.103", "ru");
     vk_api.set_access_token(
-        "b5b817e603c712ed16fbe8a805ac0dc35874b130f70f5986bffe16d4bcc61fe06fe422742831efcd12fbb"
+        "ADD_YOUR_TOKEN"
             .to_string(),
     );
     // let response = vk_api.request("groups.getMembers", params).unwrap();
@@ -19,3 +19,4 @@ fn main() {
         println!("callback, event: {} ", event);
     }));
 }
+пш
