@@ -13,5 +13,5 @@ license = "GPL-3.0-or-later"
 [dependencies]
 reqwest = { version = "0.10", features = ["json"] }
 tokio = { version = "0.2", features = ["full"] }
-json = "*"
+json = "0.12.4"
 futures = "0.3"
