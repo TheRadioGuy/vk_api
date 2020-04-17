@@ -31,3 +31,7 @@ let response = vk_api.request("groups.getMembers", params).unwrap(); // call gro
 - [ ] Add LongPolling api support
 - [ ] Make code more readable
 - [ ] Add to crates.io and make documentation
+
+### Thanks guys from Rust chat, namely:
+
+@MikailBag, @ozkriff and [Bulat Idiatullin](https://vk.com/freeducker)
