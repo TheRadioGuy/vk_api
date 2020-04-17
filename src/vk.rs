@@ -57,7 +57,7 @@ impl<'a> VK<'a> {
         &self,
         method: &str,
         params: &mut Params,
-    ) -> std::result::Result<json::JsonValue, json::JsonValue> {
+    ) -> std::result::Result<json::JsonValue, String> {
         let request_url = self.build_request(method, params);
         let response = reqwest::get(&request_url)
             .await
@@ -68,7 +68,7 @@ impl<'a> VK<'a> {
         let parsed = json::parse(&response).unwrap(); // TODO: Get rid of unwrap (need help)
                                                       // Check if it's error
         if !parsed["error"].is_null() {
-            return Err(parsed);
+            return Err(parsed["error"]["error_msg"].as_str().unwrap().to_owned());
         }
 
         Ok(parsed)
@@ -83,7 +83,7 @@ impl<'a> VK<'a> {
         access_token: &Option<String>,
         api_version: &str,
         language: &str
-    ) -> std::result::Result<json::JsonValue, json::JsonValue> {
+    ) -> std::result::Result<json::JsonValue, String> {
         let request_url = {
             if access_token.is_none() {
                 panic!("Access token is empty! Did you forget to call set_access_token() ?");
@@ -101,7 +101,7 @@ impl<'a> VK<'a> {
             .unwrap();
         let parsed = json::parse(&response).unwrap(); // TODO: Get rid of unwrap (need help)
         if !parsed["error"].is_null() {
-            return Err(parsed);
+            return Err(parsed["error"]["error_msg"].as_str().unwrap().to_owned());
         }
         Ok(parsed)
     }
