@@ -1,5 +1,5 @@
 [package]
-name = "vk_api"
+name = "vkapi"
 version = "0.1.0"
 authors = ["Sergey Duck <sergeypechnikov326@gmail.com>"]
 edition = "2018"
