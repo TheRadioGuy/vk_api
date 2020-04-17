@@ -7,7 +7,7 @@ description = "Rust create for interacting with VK API"
 readme = "README.md"
 repository = "https://github.com/DuckerMan/vk_api"
 keywords = ["rust", "vk", "vk_api"]
-
+license = "GPL-3.0-or-later"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
