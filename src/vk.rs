@@ -70,7 +70,7 @@ impl<'a> VK<'a> {
     /// this method returns JsonValue like this:
     ///  ``` [{"id":457239436,"album_id":-64,"owner_id":-142102660,"user_id":100,"sizes":[{"type":"s","url":"https://sun9-64.userapi.com/c857724/v857724964/1cd30a/OkprPbgIA4M.jpg","width":75,"height":42},{"type":"m","url":"https://sun9-11.userapi.com/c857724/v857724964/1cd30b/zf7PALt9LiQ.jpg","width":130,"height":73},{"type":"x","url":"https://sun9-42.userapi.com/c857724/v857724964/1cd30c/QkU_GWrWrtg.jpg",":"o","url":"https://sun9-55.userapi.com/c857724/v857724964/1cd30f/VuJoCsfzNhQ.jpg","width":130,"height":87},{"type":"p","url":"https://sun9-7.userapi.com/c857724/v857724964/1cd310/03M7NFSwldw.jpg","width":200,"height":133},{"type":"q","url":"https://sun9-27.userapi.com/c857724/v857724964/1cd311/E-l93bSWpSk.jpg","width":320,"height":213},{"type":"r","url":"https://sun9-61.userapi.com/c857724/v857724964/1cd312/0aqWUY6M9jE.jpg","width":510,"height":340}],"text":"","date":1587293486,"access_key":"cb0b2221048b3d8021"}]     ```
     /// More details about return [here](https://vk.com/dev/upload_files)
-    pub async fn upload(&self, file: File) -> Result<json::JsonValue, String> {
+    pub async fn upload(&self, file: File, params: Params) -> Result<json::JsonValue, String> {
         // TODO: Avoid unwrap
         let mut form = Form::new();
         let mut params = Params::new(); // TODO: Add additional params

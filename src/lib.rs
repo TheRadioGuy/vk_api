@@ -17,6 +17,7 @@ extern crate json;
 extern crate futures;
 
 pub mod longpoll;
+#[macro_use]
 pub mod params;
 pub mod vk;
 pub mod types {

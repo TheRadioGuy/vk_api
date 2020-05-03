@@ -34,7 +34,7 @@ impl Longpoll {
 
     pub async fn start(&self, callback: Box<dyn Fn(&json::JsonValue) -> ()>) {
         let mut params = Params::new();
-        params.add("group_id", &self.group_id);
+        params.add_param("group_id", &self.group_id);
         let data = VK::request_public(
             "groups.getLongPollServer",
             &mut params,

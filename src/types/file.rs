@@ -15,7 +15,7 @@ impl File {
         let path = PathBuf::from(path);
         let mut params = Params::new();
         if matches!(destination, Destination::AudioMessage) {
-            params.add("type", "audio_message");
+            params.add_param("type", "audio_message");
         }
         Self {
             path,
@@ -24,6 +24,6 @@ impl File {
         }
     }
     pub fn add_param(&mut self, key: &str, value: &str) {
-        self.params.add(key, value);
+        self.params.add_param(key, value);
     }
 }

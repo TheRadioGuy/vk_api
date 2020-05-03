@@ -45,33 +45,33 @@ pub fn make_params_for_saving_photo(
     upload_info: json::JsonValue,
 ) {
     if !upload_info["server"].is_null() {
-        params.add(
+        params.add_param(
             "server",
             &upload_info["server"].as_u32().unwrap().to_string(),
         );
     }
     if !upload_info["aid"].is_null() {
-        params.add("aid", upload_info["aid"].as_str().unwrap());
+        params.add_param("aid", upload_info["aid"].as_str().unwrap());
     }
     if !upload_info["photo"].is_null() {
-        params.add("photo", upload_info["photo"].as_str().unwrap());
+        params.add_param("photo", upload_info["photo"].as_str().unwrap());
     }
     if !upload_info["hash"].is_null() {
-        params.add("hash", upload_info["hash"].as_str().unwrap());
+        params.add_param("hash", upload_info["hash"].as_str().unwrap());
     }
     if !upload_info["photos_list"].is_null() {
-        params.add("photos_list", upload_info["photos_list"].as_str().unwrap());
+        params.add_param("photos_list", upload_info["photos_list"].as_str().unwrap());
     }
     if !upload_info["response"].is_null() {
-        params.add("file", upload_info["response"].as_str().unwrap());
+        params.add_param("file", upload_info["response"].as_str().unwrap());
     }
     if !upload_info["crop_data"].is_null() {
-        params.add("crop_data", upload_info["crop_data"].as_str().unwrap());
+        params.add_param("crop_data", upload_info["crop_data"].as_str().unwrap());
     }
     if !upload_info["crop_hash"].is_null() {
-        params.add("crop_hash", upload_info["crop_hash"].as_str().unwrap());
+        params.add_param("crop_hash", upload_info["crop_hash"].as_str().unwrap());
     }
     if !upload_info["audio"].is_null() {
-        params.add("audio", upload_info["audio"].as_str().unwrap());
+        params.add_param("audio", upload_info["audio"].as_str().unwrap());
     }
 }
