@@ -996,10 +996,12 @@ checksum = "078775d0255232fb988e6fccf26ddc9d1ac274299aaedcedce21c6f72cc533ce"
 name = "vkapi"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "futures",
  "json",
  "reqwest",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]

@@ -1,8 +1,9 @@
 # VK API
+![Crates.io](https://img.shields.io/crates/v/vkapi)
 
 _It's in early stage, so we need your contribution_
 
-### Yoo, how to get access_token?
+### How to get access_token?
 You can get it by 3 ways:
 * Direct auth
   * call `direct_auth()` method
@@ -18,10 +19,10 @@ let mut params = vk_api::Params::new();
 let params = params.add("group_id", "142102660").add("fields", "bdate"); // add params
 
 let mut vk_api = vk_api::VK::new("5.103", "ru"); // 5.103 is api version
-vk_api.set_access_token("ACCESS_TOKEN".to_string()); // Access token is your token (how to get it see above)
+vk_api.set_access_token("ACCESS_TOKEN".into()); // Access token is your token (how to get it see above)
 let response = vk_api.request("groups.getMembers", params).unwrap(); // call groups.getMembers method with our parametres
     for user in response["response"]["items"].members() {
-        println!("Имя: {}, Фамилия: {}, Дата рождения: {}", user["first_name"], user["last_name"], user["bdate"]); // Print all users information
+        println!("Name: {}, Surname: {}, Birth Date: {}", user["first_name"], user["last_name"], user["bdate"]); // Print all users information
     }
 ```
 ### I want more examples!
@@ -33,13 +34,13 @@ let response = vk_api.request("groups.getMembers", params).unwrap(); // call gro
 - [x] Make direct auth
 - [x] Add LongPolling api support
 - [x] Make documentation
-- [] Make code more readable
-- [] Add to crates.io
-- [] Add Buttons support
-- [] Ensure that this crate is added to the VK SDK
-- [] Add graceful error handling
-- [] Avoid unwrap
-
+- [x] Add to crates.io
+- [ ] Make code more readable
+- [ ] Add Buttons support
+- [ ] Ensure that this crate is added to the VK SDK
+- [ ] Add graceful error handling
+- [x] Make file loading more easier(**it works, but it still in progress**)
+- [ ] Make macroses
 ### Thanks guys from Rust chat, namely:
 
 @MikailBag, @ozkriff and [Bulat Idiatullin](https://vk.com/freeducker)

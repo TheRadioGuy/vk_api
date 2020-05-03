@@ -32,9 +32,9 @@ impl Longpoll {
         }
     }
 
-    pub fn start(&self, callback: Box<dyn Fn(&json::JsonValue) -> ()>) {
+    pub async fn start(&self, callback: Box<dyn Fn(&json::JsonValue) -> ()>) {
         let mut params = Params::new();
-        params.add("group_id", "142102660");
+        params.add("group_id", &self.group_id);
         let data = VK::request_public(
             "groups.getLongPollServer",
             &mut params,
@@ -42,13 +42,14 @@ impl Longpoll {
             &self.api_version,
             &self.lang,
         )
+        .await
         .unwrap();
         let mut key = data["response"]["key"].as_str().unwrap().to_owned();
         let mut server = data["response"]["server"].as_str().unwrap().to_owned();
         let mut ts = data["response"]["ts"].as_str().unwrap().to_owned();
 
         loop {
-            let data = Longpoll::poll(&server, &key, ts, self.wait);
+            let data = Longpoll::poll(&server, &key, ts, self.wait).await;
             ts = data["ts"].as_str().unwrap().to_owned();
             let updates = &data["updates"];
             if !data["failed"].is_null() {
@@ -59,6 +60,7 @@ impl Longpoll {
                     &self.api_version,
                     &self.lang,
                 )
+                .await
                 .unwrap();
                 key = new_data["response"]["key"].as_str().unwrap().to_owned();
                 server = new_data["response"]["server"].as_str().unwrap().to_owned();
@@ -70,14 +72,13 @@ impl Longpoll {
                 callback(event);
             });
         }
-        // thread::spawn(move || {});
     }
 
     pub fn stop() {
         unimplemented!();
     }
 
-    #[tokio::main]
+
     pub async fn poll(server: &String, key: &String, ts: String, wait: u16) -> json::JsonValue {
         let url = format!("{}?act=a_check&key={}&ts={}&wait={}", server, key, ts, wait);
         let response = reqwest::get(&url).await.unwrap().text().await.unwrap();
