@@ -10,11 +10,12 @@
 //!        println!("Имя: {}, Фамилия: {}, Дата рождения: {}", user["first_name"], user["last_name"], user["bdate"]); // Print all users information
 //!    }
 //! ```
-//! Other examples are [hLongpollere](https://github.com/DuckerMan/vk_api/tree/master/examples)
+//! Other examples are [there](https://github.com/DuckerMan/vk_api/tree/master/examples)
 #![warn(clippy::all)]
 #[macro_use]
 extern crate json;
 extern crate futures;
+pub extern crate tokio;
 
 pub mod longpoll;
 #[macro_use]

@@ -5,13 +5,14 @@ use crate::longpoll::Longpoll;
 use crate::params::Params;
 use crate::types::destination::Destination;
 use crate::types::file::File;
+use std::sync::mpsc::{channel, Sender, Receiver};
 
 /// Request type - used for make request to VK API
 type Request = String;
 
 /// VK structure, used for call api method, use longpoll api and etc
 pub struct VK<'a> {
-    access_token: Option<String>,
+    access_token: String,
     api_version: &'a str,
     language: &'a str,
 }
@@ -22,9 +23,9 @@ impl<'a> VK<'a> {
     /// # Arguments:
     /// * `api_version` - pick up one [here](https://vk.com/dev/versions)
     /// * `language` - [here](https://vk.com/dev/api_requests)
-    pub fn new(api_version: &'a str, language: &'a str) -> Self {
+    pub fn new(api_version: &'a str, language: &'a str, access_token: String) -> Self {
         Self {
-            access_token: None,
+            access_token,
             api_version,
             language,
         }
@@ -32,12 +33,12 @@ impl<'a> VK<'a> {
 
     /// Set access token
     pub fn set_access_token(&mut self, token: String) {
-        self.access_token = Some(token);
+        self.access_token = token;
     }
 
     /// Get a reference to token
-    pub fn get_access_token(&self) -> &String {
-        self.access_token.as_ref().unwrap()
+    pub fn get_access_token(&self) -> String {
+        self.access_token.clone()
     }
 
     ///  This methond starts to longpolling, It's sad, but as for now there're ways to stop it (but I'm gonna make it)
@@ -45,21 +46,21 @@ impl<'a> VK<'a> {
     /// * `group_id` - your group ID
     /// * `wait` - Maximal time to waiting, max value is 90
     /// * `callback` - closure which have 1 argument: [event](https://vk.com/dev/groups_events)
-    pub async fn start_longpoll(
+    pub fn start_longpoll(
         &self,
         group_id: u32,
         wait: u16,
-        callback: Box<dyn Fn(&json::JsonValue) -> ()>,
-    ) {
+    ) -> Receiver<(crate::longpoll::EventType, json::JsonValue)> {
         let access_token = self.access_token.clone();
         let longpoll = Longpoll::new(
             group_id,
             wait,
-            access_token,
+            access_token.to_owned(),
             self.api_version.to_string().clone(),
             self.language.to_string().clone(),
         );
-        longpoll.start(callback).await;
+
+        longpoll.start()
     }
 
     /// Use if you want to upload any file
@@ -141,15 +142,11 @@ impl<'a> VK<'a> {
         // TODO: get rid of shitcode
         method: &str,
         params: &mut Params,
-        access_token: &Option<String>,
+        access_token: &str,
         api_version: &str,
         language: &str,
     ) -> std::result::Result<json::JsonValue, String> {
         let request_url = {
-            if access_token.is_none() {
-                panic!("Access token is empty! Did you forget to call set_access_token() ?");
-            }
-            let access_token = access_token.as_ref().unwrap();
             let result = format!(
                 "https://api.vk.com/method/{}?{}access_token={}&v={}&lang={}",
                 method,
@@ -197,12 +194,7 @@ impl<'a> VK<'a> {
     }
 
     fn build_request(&self, method: &str, params: &mut Params) -> Request {
-        let access_token = self.access_token.as_ref();
-        if access_token.is_none() {
-            panic!("Access token is empty! Did you forget to call set_access_token() ?");
-        }
-
-        let access_token = access_token.unwrap();
+        let access_token = &self.access_token;
         let result = format!(
             "https://api.vk.com/method/{}?{}access_token={}&v={}&lang={}",
             method,
