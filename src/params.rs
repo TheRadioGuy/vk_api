@@ -51,6 +51,7 @@ impl Params {
 ///
 /// let param = param!{"group_id" => "1", "fields" => "bdate"};
 macro_rules! param(
+    () => {vkapi::params::Params::new()};
     { $($key:expr => $value:expr),+ } => {
         {
             let mut params = vkapi::params::Params::new();

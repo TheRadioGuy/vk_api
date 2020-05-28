@@ -2,13 +2,27 @@ use super::params::Params;
 use super::vk::VK;
 use std::sync::RwLock;
 use std::thread;
+use std::sync::mpsc::{channel, Sender, Receiver};
 
+/// TODO: Add more event types
+#[derive(Debug, Clone)]
+pub enum EventType {
+    NewMessage,
+    Other(String)
+}
+
+impl EventType {
+    pub fn new(event: &str) -> Self {
+        match event {
+            "message_new" => EventType::NewMessage,
+            _ => EventType::Other(event.to_owned())
+        }
+    }
+}
 pub struct Longpoll {
-    server: Option<String>,
-    key: Option<String>,
     group_id: String,
     wait: u16,
-    token: Option<String>,
+    token: String,
     api_version: String,
     lang: String,
 }
@@ -17,13 +31,11 @@ impl Longpoll {
     pub fn new(
         group_id: u32,
         wait: u16,
-        token: Option<String>,
+        token: String,
         api_version: String,
         lang: String,
     ) -> Self {
         Self {
-            server: None,
-            key: None,
             group_id: group_id.to_string(),
             wait: wait,
             token,
@@ -32,15 +44,23 @@ impl Longpoll {
         }
     }
 
-    pub async fn start(&self, callback: Box<dyn Fn(&json::JsonValue) -> ()>) {
+    pub fn start(&self) -> Receiver<(EventType, json::JsonValue)> {
+        let (tx, rx) = channel();
+        let token = self.token.clone();
+        let api_version = self.api_version.clone();
+        let lang = self.lang.clone();
+        let group_id = self.group_id.clone();
+        let wait = self.wait;
+
+        tokio::spawn(async move {
         let mut params = Params::new();
-        params.add_param("group_id", &self.group_id);
+        params.add_param("group_id", &group_id);
         let data = VK::request_public(
             "groups.getLongPollServer",
             &mut params,
-            &self.token,
-            &self.api_version,
-            &self.lang,
+            &token,
+            &api_version,
+            &lang,
         )
         .await
         .unwrap();
@@ -49,16 +69,16 @@ impl Longpoll {
         let mut ts = data["response"]["ts"].as_str().unwrap().to_owned();
 
         loop {
-            let data = Longpoll::poll(&server, &key, ts, self.wait).await;
+            let data = Longpoll::poll(&server, &key, ts, wait).await;
             ts = data["ts"].as_str().unwrap().to_owned();
             let updates = &data["updates"];
             if !data["failed"].is_null() {
                 let new_data = VK::request_public(
                     "groups.getLongPollServer",
                     &mut params,
-                    &self.token,
-                    &self.api_version,
-                    &self.lang,
+                    &token,
+                    &api_version,
+                    &lang,
                 )
                 .await
                 .unwrap();
@@ -69,9 +89,14 @@ impl Longpoll {
             }
 
             updates.members().for_each(|event| {
-                callback(event);
+                let event_type = EventType::new(&event["type"].as_str().unwrap());
+                let event = event["object"].clone();
+                tx.send((event_type, event)).unwrap();
             });
         }
+        });
+
+        rx
     }
 
     pub fn stop() {
