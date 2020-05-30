@@ -12,22 +12,24 @@
 //! ```
 //! Other examples are [hLongpollere](https://github.com/DuckerMan/vk_api/tree/master/examples)
 #![warn(clippy::all)]
-#[macro_use]
-extern crate json;
 extern crate futures;
 
 pub mod longpoll;
 #[macro_use]
 pub mod params;
-pub mod vk;
-pub mod types {
-    pub mod destination;
-    pub mod file;
-}
+pub mod types;
 mod utils;
+pub mod vk;
 
 pub use longpoll::Longpoll;
 pub use params::Params;
 pub use types::destination::Destination;
 pub use types::file::File;
 pub use vk::VK;
+
+use serde::Deserialize;
+
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub enum LongpollEvent {
+    MessageNew,
+}

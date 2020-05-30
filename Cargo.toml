@@ -1,6 +1,6 @@
 [package]
 name = "vkapi"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Sergey Duck <sergeypechnikov326@gmail.com>"]
 edition = "2018"
 description = "Rust create for interacting with VK API"
@@ -11,9 +11,19 @@ license = "GPL-3.0-or-later"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reqwest = { version = "0.10.4", features = ["json", "blocking", "stream"] }
+reqwest = { version = "0.10.4", features = ["blocking", "stream", "json"] }
 tokio = { version = "0.2", features = ["full"] }
-json = "0.12.4"
+serde = { version = "1.0.110", features = ["derive"] }
+serde_json = "1.0.53"
 futures = "0.3"
+anyhow = "1.0.31"
 tokio-util = "0.3.1"
 bytes = "0.5.3"
+log = "0.4.8"
+crossbeam-channel = "0.4.2"
+chrono = { version = "0.4.11", features = ["serde"] }
+rand = "0.7.3"
+itertools = "0.9.0"
+
+[dev-dependencies]
+pretty_env_logger = "0.4.0"

@@ -1,30 +1,30 @@
 // TODO: Add param macro
-use std::ops::Add;
 use std::collections::HashMap;
+use std::ops::Add;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Params {
     params: HashMap<String, String>,
 }
 
 impl Add for Params {
     type Output = Self;
-    fn add(self, other: Self) -> Self {
+    fn add(mut self, other: Self) -> Self {
         let params2 = other.get_params();
-        let mut params = self.clone();
 
-
-        for (k, v) in params2.into_iter(){
-            params.add_param(k, v);
+        for (k, v) in params2.iter() {
+            self.add_param(k, v);
         }
 
-        params
+        self
     }
 }
 
 impl Params {
     pub fn new() -> Self {
-        Params { params: HashMap::new() }
+        Params {
+            params: HashMap::new(),
+        }
     }
 
     pub fn add_param(&mut self, param: &str, value: &str) -> &mut Self {

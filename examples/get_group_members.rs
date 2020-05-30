@@ -3,7 +3,7 @@ extern crate vkapi;
 
 #[tokio::main]
 async fn main() {
-    let mut params = param!{"group_id" => "194950468", "fields" => "bdate,first_name,last_name"};
+    let mut params = param! {"group_id" => "194950468", "fields" => "bdate,first_name,last_name"};
 
     let mut vk_api = vkapi::VK::new("5.103", "en");
     vk_api.set_access_token(
