@@ -4,6 +4,9 @@
 
 _It's in early stage, so we need your contribution_
 
+### README is outdated, now we are rewriting it
+
+
 ### How to get access_token?
 You can get it by 3 ways:
 * Direct auth
