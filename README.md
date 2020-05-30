@@ -1,6 +1,7 @@
 # VK API
 [![](http://meritbadge.herokuapp.com/vkapi)](https://crates.io/crates/vkapi)
 [![documentation (docs.rs)](https://docs.rs/vkapi/badge.svg)](https://docs.rs/vkapi)
+[![Build Status](https://travis-ci.org/DuckerMan/vk_api.svg?branch=master)](https://travis-ci.org/DuckerMan/vk_api)
 
 _It's in early stage, so we need your contribution_
 
