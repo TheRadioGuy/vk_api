@@ -1,11 +1,10 @@
-use chrono::{serde::ts_seconds, DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use image::{GenericImage, GenericImageView, DynamicImage};
+use crate::utils::bytes_from_response;
+use crate::{Params, VK};
 use anyhow::Context;
 use bytes::Bytes;
-use crate::utils::image_from_response;
-use crate::{VK, Params};
-use std::sync::Arc;
+use chrono::{serde::ts_seconds, DateTime, Utc};
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 
 pub mod destination;
 pub mod file;
@@ -21,20 +20,14 @@ pub(crate) struct VkError {
 #[derive(Deserialize, Debug, Clone)]
 pub struct Message {
     pub id: u32,
-    pub out: u32,
     #[serde(with = "ts_seconds")]
     pub date: DateTime<Utc>,
     pub peer_id: u32,
     pub conversation_message_id: u32,
-    pub important: bool,
-    pub is_hidden: bool,
-    pub from_id: u32,
+    pub from_id: i32,
     pub text: String,
-    pub random_id: u32,
-    #[serde(rename = "ref")]
-    pub ref_: Option<String>,
-    pub ref_source: Option<String>,
     pub attachments: Vec<Attachment>,
+    pub reply_message: Option<Box<Message>>,
 }
 
 impl Message {
@@ -43,27 +36,23 @@ impl Message {
         let peer_id = self.peer_id;
         let reply_to = self.conversation_message_id;
 
-
         let mut params = Params::new();
         params.add_param("random_id", &random_id.to_string());
         params.add_param("peer_id", &peer_id.to_string());
         params.add_param("reply_to", &reply_to.to_string());
-        let mut attach = format!("photo{}_{}", photo.owner_id, photo.id);
+        let attach = format!("photo{}_{}", photo.owner_id, photo.id);
         let attach = match photo.access_token {
             Some(token) => format!("{}_{}", attach, token),
-            None => attach
+            None => attach,
         };
         params.add_param("attachment", &attach);
 
-        let _: serde_json::Value = vk.request(
-            "messages.send",
-            &mut params
-        ).await?;
+        let _: serde_json::Value = vk.request_post("messages.send", params).await?;
 
         Ok(())
     }
 
-    pub async fn reply(&self, vk: &VK, text: Option<String>, ) -> Result<(), anyhow::Error> {
+    pub async fn reply(&self, vk: &VK, text: Option<String>) -> Result<(), anyhow::Error> {
         let random_id: i64 = rand::random();
         let peer_id = self.peer_id;
         let reply_to = self.conversation_message_id;
@@ -77,20 +66,39 @@ impl Message {
             params.add_param("message", &text);
         }
 
-        let response: serde_json::Value = vk.request(
-            "messages.send",
-            &mut params
-        ).await?;
+        let _: serde_json::Value = vk.request_post("messages.send", params).await?;
 
         Ok(())
+    }
+
+    pub async fn get_chat_context(&self, vk: &VK) -> Result<ConversationMembers, anyhow::Error> {
+        let mut params = Params::new();
+        params.add_param("peer_id", &self.peer_id.to_string());
+
+        let response: serde_json::Value = vk
+            .request("messages.getConversationMembers", &mut params)
+            .await?;
+        dbg!(&response);
+
+        Ok(serde_json::from_value(
+            // TODO make proper struct
+            response["response"].to_owned(),
+        )?)
     }
 }
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum Attachment {
     Photo { photo: Photo },
+
+    // TODO: implement other variants of internally tagged enum via structs, not serde_json::Value
+    Sticker { sticker: serde_json::Value },
+    Video { video: serde_json::Value },
+    Wall { wall: serde_json::Value },
+    AudioMessage { audio_message: serde_json::Value },
+    Doc { doc: serde_json::Value },
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -101,13 +109,40 @@ struct MessageRequest {
     user_ids: Option<String>,
     random_id: i64,
     peer_id: u32,
-
     // TODO: fill
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Photo {
+pub struct ConversationMembers {
+    pub count: u16,
+    pub items: Vec<ChatUser>,
+    pub profiles: Vec<User>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct User {
     pub id: u32,
+    pub first_name: String,
+    pub last_name: String,
+    pub is_closed: bool,
+    pub can_access_closed: bool,
+    pub screen_name: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct ChatUser {
+    pub member_id: i32,
+    pub invited_by: u32,
+    #[serde(with = "ts_seconds")]
+    pub join_date: DateTime<Utc>,
+    pub is_admin: Option<bool>,
+    pub is_owner: Option<bool>,
+    pub can_kick: Option<bool>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct Photo {
+    pub id: i32,
     pub access_token: Option<String>,
     pub album_id: i32,
     pub owner_id: i32,
@@ -122,24 +157,29 @@ pub struct Photo {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct PhotoSaveResponse {
-    pub response: Vec<Photo>
+    pub response: Vec<Photo>,
 }
 
 impl Photo {
-    pub async fn get_photo(&self) -> Result<DynamicImage, anyhow::Error>
-    {
-        let url = self.sizes.iter().find(|&size| &size.type_ == "z" ||  &size.type_ == "y" || &size.type_ == "r" || &size.type_ == "x").unwrap().url.clone();
+    pub async fn get_photo_bytes(&self) -> Result<Bytes, anyhow::Error> {
+        dbg!(&self.sizes);
+        let sizes_sorted: Vec<Size> = self
+            .sizes
+            .clone()
+            .into_iter()
+            .sorted_by(|a, b| Ord::cmp(&b.width, &a.width))
+            .sorted_by(|a, b| Ord::cmp(&b.height, &a.height))
+            .collect();
+        dbg!(&sizes_sorted);
+        let url = sizes_sorted.first().unwrap().url.clone();
 
-        let response: reqwest::Response = reqwest::get(&url)
-            .await
-            .context(format!(
-                "{}:{} Photo::get_photo | could not complete get request",
-                file!(),
-                line!()
-            ))?;
+        let response: reqwest::Response = reqwest::get(&url).await.context(format!(
+            "{}:{} Photo::get_photo | could not complete get request",
+            file!(),
+            line!()
+        ))?;
 
-        let image = image_from_response(response).await?;
-        Ok(image)
+        bytes_from_response(response).await
     }
 }
 
@@ -154,21 +194,21 @@ pub struct Size {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct PhotoUploadServerResponse {
-    pub response: InnerPhotoUploadServerResponse
+    pub response: InnerPhotoUploadServerResponse,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct InnerPhotoUploadServerResponse {
     pub upload_url: String,
     pub album_id: i32,
-    pub user_id: u32
+    pub user_id: u32,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct PhotoUploadResponse {
     pub server: u32,
     pub photo: String,
-    pub hash: String
+    pub hash: String,
 }
 
 #[cfg(test)]

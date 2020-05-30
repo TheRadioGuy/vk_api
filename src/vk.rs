@@ -3,14 +3,13 @@ use reqwest::multipart::Form; // FIXME: Add non-blocking
 use crate::longpoll::Longpoll;
 use crate::params::Params;
 use crate::types::destination::Destination;
-use crate::types::file::File;
-use crate::types::longpoll::{LongpollUpdate};
-use crate::types::{VkError, Message, PhotoUploadServerResponse, PhotoUploadResponse, PhotoSaveResponse};
+use crate::types::{
+    PhotoSaveResponse, PhotoUploadResponse, PhotoUploadServerResponse, VkError,
+};
+use crate::utils::{IntoPart, LongpollStream};
 use anyhow::Context;
-use futures::Stream;
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
-use crate::utils::{LongpollStream, IntoPart};
 
 /// Request type - used for make request to VK API
 type Request = String;
@@ -20,7 +19,6 @@ pub struct VK {
     access_token: Option<String>,
     api_version: String,
     language: String,
-    pub(crate) group_id: u32,
 }
 
 impl VK {
@@ -29,12 +27,11 @@ impl VK {
     /// # Arguments:
     /// * `api_version` - pick up one [here](https://vk.com/dev/versions)
     /// * `language` - [here](https://vk.com/dev/api_requests)
-    pub fn new(api_version: String, language: String, group_id: u32) -> Self {
+    pub fn new(api_version: String, language: String) -> Self {
         Self {
             access_token: None,
             api_version,
             language,
-            group_id
         }
     }
 
@@ -74,23 +71,27 @@ impl VK {
     /// More details about return [here](https://vk.com/dev/upload_files)
 
     // TODO: generic
-    pub async fn save_photo(&self, resp: PhotoUploadResponse) -> Result<PhotoSaveResponse, anyhow::Error> {
+    pub async fn save_photo(
+        &self,
+        resp: PhotoUploadResponse,
+    ) -> Result<PhotoSaveResponse, anyhow::Error> {
         let mut params = Params::new();
         params.add_param("server", &resp.server.to_string());
         params.add_param("photo", &resp.photo);
         params.add_param("hash", &resp.hash);
-        let res = self.request(
-            Destination::Message.pick_method_save(),
-            &mut params
-        ).await?;
+        let res = self
+            .request(Destination::Message.pick_method_save(), &mut params)
+            .await?;
 
         Ok(res)
     }
 
-
     // TODO: support for generic upload, right now - only photos
-    pub async fn upload(&self, file: impl IntoPart, destination: Destination,
-                        // params: Params
+    pub async fn upload(
+        &self,
+        file: impl IntoPart,
+        destination: Destination,
+        // params: Params
     ) -> Result<PhotoUploadResponse, anyhow::Error> {
         let mut form = Form::new();
         let mut params = Params::new();
@@ -100,20 +101,10 @@ impl VK {
 
         let upload_url = upload.response.upload_url;
         let param_for_sending = destination.pick_param();
-        form = form.part(
-            param_for_sending,
-            file.into_part(None).await?,
-        );
+        form = form.part(param_for_sending, file.into_part(None).await?);
         let client = reqwest::Client::new();
-        let req = client
-            .post(&upload_url)
-            .multipart(form);
-        let response = req
-            .send()
-            .await?
-            .text()
-            .await?;
-
+        let req = client.post(&upload_url).multipart(form);
+        let response = req.send().await?.text().await?;
 
         let parsed = serde_json::from_str(&response);
 
@@ -125,6 +116,56 @@ impl VK {
         //     let mut saved_file = self.request(method_for_saving, &mut params).await?;
         //     return Ok(saved_file.remove("response"));
         // }
+    }
+
+    pub async fn request_post<T: DeserializeOwned + Debug>(
+        &self,
+        method: &str,
+        params: Params,
+    ) -> Result<T, anyhow::Error> {
+        let url = format!("https://api.vk.com/method/{}", method);
+
+        let mut params = params;
+
+        params.add_param("v", &self.api_version);
+        params.add_param(
+            "access_token",
+            &self
+                .access_token
+                .as_ref()
+                .context("You need to set the access_token!")?,
+        );
+
+        let client = reqwest::Client::new();
+
+        let response: String = client
+            .post(&url)
+            .form(params.get_params())
+            .send()
+            .await
+            .context(format!(
+                "{}:{} VK::request | could not complete get request",
+                file!(),
+                line!()
+            ))?
+            .text()
+            .await
+            .context(format!(
+                "{}:{} VK::request | could not parse response into string",
+                file!(),
+                line!()
+            ))?;
+
+        log::trace!(
+            "{}:{} VK::request | response: {}",
+            file!(),
+            line!(),
+            &response
+        );
+
+        let parsed = serde_json::from_str(&response);
+
+        cvt(parsed, &response)
     }
 
     /// Used for request API
@@ -152,7 +193,12 @@ impl VK {
                 line!()
             ))?;
 
-        log::trace!("{}:{} VK::request | response: {}", file!(), line!(), &response);
+        log::trace!(
+            "{}:{} VK::request | response: {}",
+            file!(),
+            line!(),
+            &response
+        );
 
         let parsed = serde_json::from_str(&response);
 

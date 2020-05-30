@@ -1,24 +1,21 @@
 // Copy-pasted from https://github.com/teloxide/teloxide/blob/master/src/requests/utils.rs, thanks guys
-use std::{borrow::Cow, path::PathBuf};
+use std::{path::PathBuf};
 
 use crate::types::longpoll::LongpollUpdate;
-use bytes::{Bytes, BytesMut, Buf};
-use futures::channel::mpsc::Receiver;
-use futures::task::{Context, Poll};
-use futures::{Stream, StreamExt, AsyncReadExt, FutureExt};
-use reqwest::{multipart::Part, Body};
-use reqwest::Response;
-use std::future::Future;
-use std::pin::Pin;
-use tokio_util::codec::{Decoder, FramedRead, BytesCodec};
-use anyhow::Error;
-use crate::{LongpollEvent};
-use std::sync::{Arc, Mutex, RwLock};
-use image::{RgbaImage, ImageBuffer, GenericImage, GenericImageView, DynamicImage};
-use futures::future::BoxFuture;
-use rand::{random, AsByteSliceMut};
+use crate::LongpollEvent;
 use anyhow::Context as _;
-use std::io::{Cursor, Read};
+use anyhow::Error;
+use bytes::{Bytes, BytesMut};
+use futures::channel::mpsc::Receiver;
+use futures::future::BoxFuture;
+use futures::task::{Context, Poll};
+use futures::{Stream, StreamExt};
+use rand::{random};
+use reqwest::Response;
+use reqwest::{multipart::Part, Body};
+use std::pin::Pin;
+use std::sync::{Arc, RwLock};
+use tokio_util::codec::{Decoder, FramedRead};
 
 struct FileDecoder;
 
@@ -34,17 +31,12 @@ impl Decoder for FileDecoder {
     }
 }
 
-pub async fn image_from_response(response: Response) -> Result<DynamicImage, anyhow::Error>
-{
-    let bytes = response
-        .bytes()
-        .await
-        .context(format!(
-            "{}:{} Utils::image_from_response | could not turn response into bytes",
-            file!(),
-            line!()
-        ))?;
-    Ok(image::load_from_memory(&bytes)?)
+pub async fn bytes_from_response(response: Response) -> Result<Bytes, anyhow::Error> {
+    response.bytes().await.context(format!(
+        "{}:{} Utils::image_from_response | could not turn response into bytes",
+        file!(),
+        line!()
+    ))
 }
 
 // pub fn make_params_for_saving_photo(
@@ -65,43 +57,33 @@ pub async fn image_from_response(response: Response) -> Result<DynamicImage, any
 //     }
 // }
 
-pub struct LongpollStream {
-    pub(crate) inner: Receiver<LongpollUpdate>,
-    prefixes: Arc<RwLock<Vec<String>>>,
-    events: Arc<RwLock<Vec<LongpollEvent>>>,
-    // TODO: oneshot to close stream
-}
-
 pub trait IntoPart {
     fn into_part(self, name: Option<String>) -> BoxFuture<'static, Result<Part, anyhow::Error>>;
 }
 
+// TODO: blocked by https://github.com/seanmonstar/reqwest/issues/927
 impl IntoPart for Vec<u8> {
     fn into_part(self, name: Option<String>) -> BoxFuture<'static, Result<Part, Error>> {
         Box::pin(async move {
             let file_name = name.unwrap_or(format!("default_filename{}.jpg", random::<u32>()));
-            let part = Part::stream(self).file_name(file_name);
-            dbg!(&part);
+            let part = Part::stream(Body::wrap_stream(futures::stream::once(
+                futures::future::ready::<Result<Vec<u8>, reqwest::Error>>(Ok(self)),
+            ))).file_name(file_name);
             Ok(part)
         })
     }
 }
 
 impl IntoPart for PathBuf {
-    fn into_part(self, file_name: Option<String>) -> BoxFuture<'static, Result<Part, anyhow::Error>> {
+    fn into_part(
+        self,
+        file_name: Option<String>,
+    ) -> BoxFuture<'static, Result<Part, anyhow::Error>> {
         Box::pin(async move {
-            let file_name = file_name.unwrap_or(self
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .into_owned()
-            );
+            let file_name =
+                file_name.unwrap_or_else(|| self.file_name().unwrap().to_string_lossy().into_owned());
 
-            let file = FramedRead::new(
-                tokio::fs::File::open(self).await?,
-
-                FileDecoder,
-            );
+            let file = FramedRead::new(tokio::fs::File::open(self).await?, FileDecoder);
 
             log::trace!("{}:{} PathBuf::into_part | return", file!(), line!());
             Ok::<Part, anyhow::Error>(Part::stream(Body::wrap_stream(file)).file_name(file_name))
@@ -109,13 +91,23 @@ impl IntoPart for PathBuf {
     }
 }
 
+pub struct LongpollStream {
+    pub(crate) inner: Receiver<LongpollUpdate>,
+    prefixes: Arc<RwLock<Vec<String>>>,
+    events: Arc<RwLock<Vec<LongpollEvent>>>,
+    // TODO: oneshot to close stream
+}
+
 impl LongpollStream {
     pub fn set_prefix(&mut self, prefix: impl AsRef<str>) -> &mut Self {
-        self.prefixes.write().unwrap().push(prefix.as_ref().to_owned().to_lowercase());
+        self.prefixes
+            .write()
+            .unwrap()
+            .push(prefix.as_ref().to_owned().to_lowercase());
         self
     }
 
-    pub fn set_allowed_events(&mut self, mut events: &[LongpollEvent]) -> &mut Self {
+    pub fn set_allowed_events(&mut self, events: &[LongpollEvent]) -> &mut Self {
         self.events.write().unwrap().append(&mut events.to_vec());
         self
     }
@@ -140,41 +132,47 @@ impl LongpollStream {
                 let events = events.read().unwrap();
                 match &update {
                     // Alternatively for each other event
-                    MessageNew {message} => {
-                        if events.iter().any(|event| event == &LongpollEvent::MessageNew) {
+                    MessageNew { .. } => {
+                        if events
+                            .iter()
+                            .any(|event| event == &LongpollEvent::MessageNew)
+                        {
                             Some(update)
                         } else {
                             None
                         }
-                    },
-                    _ => None
+                    }
+                    _ => None,
                 }
             })
         });
-        let with_prefixes = with_events.filter_map(move |update| {
+        with_events.filter_map(move |update| {
             let prefixes = prefixes.clone();
 
             Box::pin(async move {
                 let prefixes = prefixes.read().unwrap();
-                match &update {
-                    MessageNew {message} => {
-                        if let Some(prefix) = prefixes.iter().find(|&prefix| message.text.to_lowercase().starts_with(prefix)) {
-                            let mut message = message.clone();
-                            message.text = message.text.replace(prefix, "").trim().to_owned();
-                            Some(MessageNew {message})
+                match update {
+                    MessageNew { mut message } => {
+                        if let Some(prefix) = prefixes
+                            .iter()
+                            .find(|&prefix| message.text.to_lowercase().starts_with(prefix))
+                        {
+                            message.text = message
+                                .text
+                                .to_lowercase()
+                                .replace(prefix, "")
+                                .trim()
+                                .to_owned();
+                            Some(MessageNew { message })
                         } else {
                             None
                         }
-                    },
+                    }
                     // We keep all other events
-                    _ => Some(update)
+                    _ => Some(update),
                 }
             })
-        });
-
-        // More handlers go here
-
-        with_prefixes
+        })
     }
 }
 

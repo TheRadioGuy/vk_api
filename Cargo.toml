@@ -1,6 +1,6 @@
 [package]
 name = "vkapi"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Sergey Duck <sergeypechnikov326@gmail.com>"]
 edition = "2018"
 description = "Rust create for interacting with VK API"
@@ -23,8 +23,7 @@ log = "0.4.8"
 crossbeam-channel = "0.4.2"
 chrono = { version = "0.4.11", features = ["serde"] }
 rand = "0.7.3"
-image = "0.23.4"
+itertools = "0.9.0"
 
 [dev-dependencies]
 pretty_env_logger = "0.4.0"
-image = "0.23.4"

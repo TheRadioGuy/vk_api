@@ -1,10 +1,13 @@
 use super::params::Params;
 use super::vk::VK;
-use crate::types::longpoll::{LongpollResponse, LongpollServerResponse, LongpollUpdate, SuccessfulLongpollResponse, FailedLongpollResponse};
-use anyhow::Context as _;
-use futures::{SinkExt, Stream};
+use crate::types::longpoll::{
+    FailedLongpollResponse, LongpollResponse, LongpollServerResponse, LongpollUpdate,
+    SuccessfulLongpollResponse,
+};
 use crate::utils::LongpollStream;
-use std::time::Duration;
+use anyhow::Context as _;
+use futures::channel::mpsc::Sender;
+use futures::{SinkExt};
 
 pub struct Longpoll {
     group_id: String,
@@ -46,57 +49,36 @@ impl Longpoll {
         .await
         .unwrap();
 
-        let (mut s, r) = futures::channel::mpsc::channel(10);
+        let (s, r) = futures::channel::mpsc::channel(10);
 
+        // error handler
         tokio::spawn(async move {
-            let mut key = data.response.key;
-            let mut server = data.response.server;
-            let mut ts = data.response.ts;
+            let key = data.response.key;
+            let server = data.response.server;
+            let ts = data.response.ts;
+
+            let token = self.token;
+            let params = params;
+            let lang = self.lang;
+            let api_version = self.api_version;
+
             loop {
-                let res = async {
-                    loop {
-                        use LongpollResponse::*;
-                        let data = Longpoll::poll(&server, &key, &ts, self.wait)
-                            .await?;
-
-                        let mut updates = Vec::new();
-
-                        match data {
-                            Success(data) => {
-                                log::trace!("{}:{} {:?} Poll::loop.data", file!(), line!(), &data);
-                                ts = data.ts;
-                                updates = data.updates;
-                            }
-                            Fail(_) => {
-                                let new_data: LongpollServerResponse = VK::request_public(
-                                    "groups.getLongPollServer",
-                                    &params,
-                                    &self.token,
-                                    &self.api_version,
-                                    &self.lang,
-                                )
-                                    .await?;
-                                key = new_data.response.key;
-                                server = new_data.response.server;
-                                ts = new_data.response.ts;
-                                continue;
-                            }
-                        }
-
-                        for event in updates {
-                            s.send(event.clone()).await?;
-                        }
-                    }
-
-                    Ok::<(), anyhow::Error>(())
-                };
-
-                match res.await {
+                match poller(
+                    server.clone(),
+                    key.clone(),
+                    ts.clone(),
+                    token.clone(),
+                    params.clone(),
+                    lang.clone(),
+                    api_version.clone(),
+                    self.wait,
+                    s.clone(),
+                )
+                    .await {
                     Err(e) => {
-                        log::error!("!Critical error in longpoll task:! {}", e);
-                        tokio::time::delay_for(Duration::from_secs(30)).await;
+                        log::error!("Error in longpoll loop! {:?}", e);
                         continue;
-                    },
+                    }
                     _ => continue
                 }
             }
@@ -145,11 +127,59 @@ impl Longpoll {
 
                 match res {
                     Ok(err) => Ok(LongpollResponse::Fail(err)),
-                    Err(_) => {
-                        Err(e.into())
-                    }
+                    Err(_) => Err(e.into()),
                 }
             }
+        }
+    }
+}
+
+async fn poller(
+    server: String,
+    key: String,
+    ts: String,
+    token: Option<String>,
+    params: Params,
+    lang: String,
+    api_version: String,
+    wait: u8,
+    mut s: Sender<LongpollUpdate>,
+) -> Result<(), anyhow::Error> {
+    let mut server = server;
+    let mut key = key;
+    let mut ts = ts;
+
+    loop {
+        log::trace!("longpoll loop");
+        use LongpollResponse::*;
+        let data = Longpoll::poll(&server, &key, &ts, wait).await?;
+
+        let mut updates = Vec::new();
+
+        match data {
+            Success(data) => {
+                log::trace!("{}:{} {:?} Poll::loop.data", file!(), line!(), &data);
+                ts = data.ts;
+                updates = data.updates;
+            }
+            Fail(_) => {
+                let new_data: LongpollServerResponse = VK::request_public(
+                    "groups.getLongPollServer",
+                    &params,
+                    &token,
+                    &api_version,
+                    &lang,
+                )
+                .await?;
+                key = new_data.response.key;
+                server = new_data.response.server;
+                ts = new_data.response.ts;
+                continue;
+            }
+        }
+
+        for event in updates {
+            s.send(event.clone()).await?;
         }
     }
 }

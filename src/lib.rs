@@ -27,10 +27,9 @@ pub use types::destination::Destination;
 pub use types::file::File;
 pub use vk::VK;
 
-
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub enum LongpollEvent {
-    MessageNew
+    MessageNew,
 }
