@@ -81,25 +81,24 @@ impl Destination {
         }
     }
 
-    /// __TODO__: Replace `String` to `&str`
-    pub fn pick_param(&self) -> String {
+    pub fn pick_param(&self) -> &'static str {
         match self {
-            Album => "file1".to_owned(),
-            Wall => "photo".to_owned(),
-            OwnerPhoto => "photo".to_owned(),
-            Message => "photo".to_owned(),
-            ChatPhoto => "file".to_owned(),
-            MarketPhoto => "file".to_owned(),
-            MarketAlbum => "file".to_owned(),
-            Audio => "file".to_owned(),
-            Video => "video_file".to_owned(),
-            Document => "file".to_owned(),
-            DocumentWall => "file".to_owned(),
-            DocumentMessage => "file".to_owned(),
-            Cover => "photo".to_owned(),
-            AudioMessage => "file".to_owned(),
-            StoryPhoto => "file".to_owned(),
-            StoryVideo => "video_file".to_owned(),
+            Album => "file1",
+            Wall => "photo",
+            OwnerPhoto => "photo",
+            Message => "photo",
+            ChatPhoto => "file",
+            MarketPhoto => "file",
+            MarketAlbum => "file",
+            Audio => "file",
+            Video => "video_file",
+            Document => "file",
+            DocumentWall => "file",
+            DocumentMessage => "file",
+            Cover => "photo",
+            AudioMessage => "file",
+            StoryPhoto => "file",
+            StoryVideo => "video_file",
         }
     }
 }
